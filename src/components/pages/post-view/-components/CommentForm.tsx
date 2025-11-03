@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,8 @@ export function CommentForm({ slug, postNumber }: { slug: string; postNumber: st
       content: "",
     },
   })
+
+  const contentValue = useWatch({ control: form.control, name: "content" })
 
   const onSubmit = (data: CommentFormData) => {
     createCommentMutation.mutate(
@@ -68,7 +70,7 @@ export function CommentForm({ slug, postNumber }: { slug: string; postNumber: st
               )}
             />
             {createCommentMutation.error && <ErrorMessage error={createCommentMutation.error} />}
-            <Button type="submit" disabled={createCommentMutation.isPending || !form.watch("content").trim()}>
+            <Button type="submit" disabled={createCommentMutation.isPending || !contentValue.trim()}>
               {createCommentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Post Comment
             </Button>

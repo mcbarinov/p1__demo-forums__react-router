@@ -23,5 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 
-tmp/
-.claude/
+# Environment variables
+.env.local
+.env.*.local
+.env.production
+
+# Agent files
+agent.pid
+agent.log
+
+/tmp
+/.claude
