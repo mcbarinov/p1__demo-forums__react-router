@@ -5,7 +5,7 @@ import type { Forum, Post, User, LoginRequest, LoginResponse, CreateForumData, C
 import { authStorage } from "@/lib/auth-storage"
 
 const httpClient = ky.create({
-  prefixUrl: "/",
+  prefixUrl: "http://localhost:8000",
   retry: {
     statusCodes: [408, 413, 429, 500, 502, 503, 504],
   },

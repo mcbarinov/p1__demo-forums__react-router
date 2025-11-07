@@ -33,6 +33,7 @@ All available routes in the application:
 ```
 
 **Protection details:**
+
 - **Public routes**: `/login` - accessible without authentication
 - **Protected routes**: All other routes - wrapped in `Layout` component which acts as auth guard
 
@@ -74,10 +75,6 @@ src/
 │   └── utils.ts              # UI utility functions (shadcn/ui)
 ├── hooks/                     # Custom React hooks
 │   └── useCache.ts           # Cache access hooks
-├── mocks/                     # MSW mock server
-│   ├── data.ts               # Mock data generation
-│   ├── handlers.ts           # API request handlers
-│   └── browser.ts            # Browser service worker setup
 ├── types.ts                   # TypeScript type definitions
 ├── router.ts                  # Route configuration
 └── main.tsx                   # Application entry point
@@ -125,6 +122,7 @@ This file is the heart of all server communication:
 ```typescript
 // Example: Complete API configuration with auth, error handling, and caching
 const httpClient = ky.create({
+  prefixUrl: "http://localhost:8000",  // FastAPI backend URL
   hooks: {
     beforeRequest: [(request) => {
       const token = authStorage.getAuthToken()
@@ -455,7 +453,6 @@ export function CreatePostForm() {
 
 ### 5. Developer Experience
 
-- MSW for offline development
 - Separate dev commands for humans vs AI agents
 - Clear file organization
 - Consistent naming patterns
@@ -466,8 +463,29 @@ export function CreatePostForm() {
 
 - Node.js 18+
 - pnpm package manager
+- Python 3.14+ and uv (for backend API)
+- **Backend API**: This project requires the FastAPI backend to be running
+  - Repository: https://github.com/mcbarinov/p1__demo-forums__api
+  - The backend must be running on `http://localhost:8000`
 
-### Setup
+### Backend Setup
+
+Before running the frontend, you need to start the backend API:
+
+```bash
+# Clone the backend repository
+git clone https://github.com/mcbarinov/p1__demo-forums__api.git
+cd p1__demo-forums__api
+
+# Install dependencies and start the server
+uv sync
+uv run uvicorn api:app --reload
+
+# Backend will be available at http://localhost:8000
+# API documentation at http://localhost:8000/docs
+```
+
+### Frontend Setup
 
 ```bash
 # Install dependencies
@@ -480,6 +498,8 @@ pnpm dev
 pnpm agent-dev
 ```
 
+**Note**: Make sure the backend API is running before starting the frontend.
+
 ### Key Technologies
 
 - **React 19** - UI framework
@@ -488,14 +508,12 @@ pnpm agent-dev
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
 - **shadcn/ui** - UI components
-- **MSW** - API mocking for development
 - **Ky** - HTTP client
 - **Zod** - Schema validation
 - **React Hook Form** - Form management
 
 ### Development Features
 
-- **Mock API** - MSW provides a fully functional mock backend
 - **Hot Reload** - Instant feedback during development
 - **Type Checking** - Catch errors at compile time
 - **Error Boundaries** - Graceful error recovery
@@ -575,7 +593,7 @@ export function Paginator(props: PaginatorProps) {}
 2. **-components folders** - Clear distinction between public and internal components
 3. **Cache-first approach** - Reduces server load and improves performance
 4. **Separation of API and UI** - Enables easy testing and refactoring
-5. **MSW for development** - Consistent development environment without backend
+5. **FastAPI backend** - Modern Python backend with automatic API documentation
 
 ### Trade-offs
 
@@ -606,8 +624,4 @@ echo '@import "tailwindcss";' > src/index.css
 # shadcn/ui
 pnpm dlx shadcn@latest init
 pnpm dlx shadcn@latest add dropdown-menu card table form button textarea input select sonner badge pagination alert dialog
-
-# MSW for mocks
-pnpm add -D msw
-pnpm dlx msw init public --save
 ```

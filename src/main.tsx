@@ -11,18 +11,6 @@ import { AppError } from "@/lib/errors"
 import { Toaster } from "@/components/ui/sonner"
 
 async function startApp() {
-  // Start MSW worker in development and wait for it to be ready
-  if (import.meta.env.DEV) {
-    const { worker } = await import("@/mocks/browser")
-    await worker.start({
-      onUnhandledRequest: "warn",
-      serviceWorker: {
-        url: "/mockServiceWorker.js",
-      },
-    })
-  }
-
-  // Create router after MSW is ready
   const router = createRouter()
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -69,7 +57,6 @@ async function startApp() {
     }
   }
 
-  // Render the app after MSW is ready
   const rootElement = document.getElementById("root")
   if (!rootElement) throw new Error("Root element not found")
 
