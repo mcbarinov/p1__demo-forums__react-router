@@ -13,9 +13,7 @@ if (!baseUrl) {
 
 const httpClient = ky.create({
   prefixUrl: baseUrl,
-  retry: {
-    statusCodes: [408, 413, 429, 500, 502, 503, 504],
-  },
+  retry: 0,
   hooks: {
     beforeRequest: [
       (request) => {
