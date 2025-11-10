@@ -1,8 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
 import ky from "ky"
 import { AppError } from "@/lib/errors"
-import type { Forum, Post, User, LoginRequest, LoginResponse, CreateForumData, Comment, PaginatedResponse } from "@/types"
-import { authStorage } from "@/lib/auth-storage"
+import type { Forum, Post, User, LoginRequest, CreateForumData, Comment, PaginatedResponse } from "@/types"
 import { navigateTo } from "@/lib/navigation"
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -14,21 +13,13 @@ if (!baseUrl) {
 const httpClient = ky.create({
   prefixUrl: baseUrl,
   retry: 0,
+  credentials: "include",
   hooks: {
-    beforeRequest: [
-      (request) => {
-        const authToken = authStorage.getAuthToken()
-        if (authToken) {
-          request.headers.set("Authorization", `Bearer ${authToken}`)
-        }
-      },
-    ],
     afterResponse: [
       async (_request, _options, response) => {
         // Handle 401 authentication errors
-        // Clear token and redirect to login using SPA navigation (not full page reload)
+        // Redirect to login using SPA navigation (not full page reload)
         if (response.status === 401) {
-          authStorage.clearAuthToken()
           if (window.location.pathname !== "/login") {
             // Use navigateTo() instead of window.location.href to maintain SPA navigation
             // This prevents full page reload and preserves smooth user experience
@@ -122,9 +113,9 @@ export const api = {
       const queryClient = useQueryClient()
 
       return useMutation({
-        mutationFn: (credentials: LoginRequest) => httpClient.post("api/auth/login", { json: credentials }).json<LoginResponse>(),
-        onSuccess: async (response) => {
-          authStorage.setAuthToken(response.authToken)
+        mutationFn: (credentials: LoginRequest) => httpClient.post("api/auth/login", { json: credentials }),
+        onSuccess: async () => {
+          // Cookie is set automatically by the server
           // Invalidate and refetch all queries after login
           await queryClient.invalidateQueries()
         },
@@ -137,9 +128,9 @@ export const api = {
       return useMutation({
         mutationFn: () => httpClient.post("api/auth/logout"),
         onSuccess: () => {
-          authStorage.clearAuthToken()
+          // Cookie is cleared automatically by the server
+          // Set currentUser to null without triggering refetch
           queryClient.setQueryData(["currentUser"], null)
-          queryClient.clear()
         },
       })
     },

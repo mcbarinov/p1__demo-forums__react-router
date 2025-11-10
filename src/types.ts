@@ -43,9 +43,6 @@ export interface LoginRequest {
   password: string
 }
 
-export interface LoginResponse {
-  authToken: string
-}
 export interface CreateForumData {
   title: string
   slug: string

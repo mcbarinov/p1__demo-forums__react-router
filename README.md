@@ -70,7 +70,6 @@ src/
 ├── lib/                       # Core utilities
 │   ├── api.ts                # API client and cache configuration
 │   ├── errors.ts             # Error handling system
-│   ├── auth-storage.ts       # Authentication management
 │   ├── formatters.ts         # Data formatting utilities
 │   └── utils.ts              # UI utility functions (shadcn/ui)
 ├── hooks/                     # Custom React hooks
@@ -91,7 +90,7 @@ This file is the heart of all server communication:
 **HTTP Client Configuration:**
 
 - Configures `ky` HTTP client with base URL and interceptors
-- Automatically attaches auth tokens to all requests
+- Automatically sends HttpOnly cookies with all requests (`credentials: "include"`)
 - Handles 401 errors with redirect to login (only when not on login page)
 - Excludes 401 from retry attempts to prevent multiple failed auth requests
 - Transforms HTTP errors into standardized `AppError` instances
@@ -107,7 +106,7 @@ This file is the heart of all server communication:
 
 - HTTP request/response processing
 - Error transformation and standardization
-- Authentication token injection
+- Automatic cookie transmission for authentication
 - Cache configuration (staleTime, gcTime)
 - Query key management
 
@@ -123,15 +122,13 @@ This file is the heart of all server communication:
 // Example: Complete API configuration with auth, error handling, and caching
 const httpClient = ky.create({
   prefixUrl: baseUrl,  // Configured via VITE_API_BASE_URL environment variable
+  credentials: "include",  // Send HttpOnly cookies with every request
   hooks: {
-    beforeRequest: [(request) => {
-      const token = authStorage.getAuthToken()
-      if (token) request.headers.set("Authorization", `Bearer ${token}`)
-    }],
     afterResponse: [async (request, options, response) => {
       if (response.status === 401) {
-        authStorage.clearAuthToken()
-        window.location.href = "/login"
+        // Cookie is HttpOnly, cannot be accessed by JavaScript
+        // Redirect to login for re-authentication
+        navigateTo("/login", { replace: true })
       }
       if (!response.ok) {
         throw new AppError(...)
@@ -399,28 +396,124 @@ export function CreatePostForm() {
 
 #### Authentication Errors
 
-- 401 responses always clear auth token from localStorage
-- Redirect to `/login` only happens when not already on login page
+- 401 responses trigger automatic redirect to `/login`
+- Redirect only happens when not already on login page
 - No retry attempts for 401 errors (fail immediately)
 - Query cache cleared to prevent stale data
 
-### Authentication
+### Authentication & Security
 
-#### Token Management
+#### Cookie-Based Authentication
 
-- Stored in localStorage via `authStorage`
-- Automatically added to request headers
-- Cleared on logout or 401 response
+This project uses **HttpOnly cookies** for authentication instead of localStorage, providing better security against XSS attacks.
 
-#### Auth Flow
+**Why HttpOnly Cookies?**
 
-1. Login stores token and invalidates all queries to refresh data
-2. Layout component acts as auth guard - checks token and conditionally queries user profile
-3. Token attached to all API requests
-4. 401 response clears auth token; redirects to `/login` only when not already there
-5. User profile accessed via `/api/profile` endpoint (only queried when auth token exists)
-6. Password change available through `/api/profile/change-password`
-7. Login page allows re-authentication without logout (account switching)
+- **XSS Protection**: Cookies with `HttpOnly` flag cannot be accessed by JavaScript, preventing token theft via XSS
+- **Automatic Transmission**: Browser automatically sends cookies with requests (using `credentials: "include"`)
+- **CSRF Protection**: `SameSite=Lax` prevents cookies from being sent on cross-site requests
+- **Secure Flag**: Cookies only transmitted over HTTPS (both in development and production)
+
+**Authentication Flow:**
+
+1. **Login**: Backend sets `Set-Cookie` header with `HttpOnly`, `Secure`, `SameSite=Lax` flags
+2. **Requests**: Browser automatically includes cookie with all API requests (no JavaScript access)
+3. **Validation**: Backend reads session ID from cookie and validates session
+4. **Logout**: Backend sends `Set-Cookie` with expired date to clear cookie
+5. **Auth Guard**: Layout component queries `/api/profile` - 401 redirects to login
+
+**Security Configuration:**
+
+```python
+# Backend (FastAPI) - routes.py
+import os
+
+# Secure flag: True in production (behind reverse proxy), False in development
+SECURE_COOKIES = os.getenv("ENVIRONMENT", "development") == "production"
+
+response.set_cookie(
+    key="session_id",
+    value=session_id,
+    httponly=True,        # Cannot be accessed by JavaScript (XSS protection)
+    secure=SECURE_COOKIES,  # HTTPS-only in production
+    samesite="lax",       # CSRF protection (sent on same-site + top-level navigation)
+    path="/",             # Available for all routes
+)
+```
+
+```typescript
+// Frontend (ky) - api.ts
+const httpClient = ky.create({
+  credentials: "include", // Send cookies with requests
+})
+```
+
+**Development vs Production:**
+
+**Development** (HTTP everywhere):
+
+```
+Browser (HTTP) → Frontend :3001 (HTTP)
+                     ↓
+                Backend :8000 (HTTP)
+                Cookie: secure=False ✅
+```
+
+**Production** (reverse proxy terminates SSL):
+
+```
+Browser (HTTPS) → Caddy/Nginx :443 (terminates SSL)
+                     ↓
+                Backend :8000 (HTTP internally)
+                Cookie: secure=True ✅
+```
+
+In production, the reverse proxy (Caddy, Nginx, etc.) handles SSL termination. The backend sets `secure=True` cookies, which the browser treats as HTTPS-only because the connection to the proxy is HTTPS.
+
+**Trade-offs & Considerations:**
+
+✅ **Advantages:**
+
+- Immune to XSS token theft (HttpOnly)
+- Automatic CSRF protection (SameSite=Lax)
+- Simpler frontend code (no manual token management)
+- Industry standard for session management
+- Works in both development (HTTP) and production (HTTPS behind proxy)
+
+⚠️ **Considerations:**
+
+- CORS configuration must include `allow_credentials=True`
+- Session state stored in backend memory (not suitable for horizontal scaling without external session store)
+- Cannot inspect token in browser DevTools JavaScript console (by design - this is a security feature)
+- Requires environment variable in production (`ENVIRONMENT=production`)
+
+**Alternative Approaches:**
+
+This project chose cookies for security. Other approaches include:
+
+1. **localStorage + Bearer tokens** (previous approach):
+   - ❌ Vulnerable to XSS attacks
+   - ✅ Simpler CORS setup
+   - ✅ Works without HTTPS
+
+2. **Refresh tokens in HttpOnly cookies + Access tokens in memory**:
+   - ✅ Best security (short-lived access tokens)
+   - ✅ Survives page refreshes (refresh token)
+   - ❌ More complex implementation
+
+3. **OAuth/OIDC with third-party providers**:
+   - ✅ No password management
+   - ✅ Industry standard
+   - ❌ Requires external service
+
+**Security Best Practices:**
+
+1. **Always use HTTPS** in production (enforced by `Secure` flag)
+2. **Validate CORS origins** carefully (never use `*` with credentials)
+3. **Set appropriate session expiration** (currently indefinite for simplicity)
+4. **Monitor for XSS vulnerabilities** (React provides built-in protection)
+5. **Consider adding rate limiting** on authentication endpoints
+6. **Use Content Security Policy (CSP)** headers in production
 
 ## Key Development Principles
 

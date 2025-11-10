@@ -5,7 +5,6 @@ import "./index.css"
 import { RouterProvider } from "react-router"
 import { createRouter } from "@/router"
 import { api } from "@/lib/api"
-import { authStorage } from "@/lib/auth-storage"
 import { toast } from "sonner"
 import { AppError } from "@/lib/errors"
 import { Toaster } from "@/components/ui/sonner"
@@ -63,11 +62,9 @@ async function startApp() {
     }),
   })
 
-  // Initialize auth from localStorage
-  const authToken = authStorage.getAuthToken()
-  if (authToken) {
-    // Prefetch critical data only if authenticated
-    // This ensures users, forums, and current user are loaded once at app start
+  // Prefetch critical data only if not on login page
+  // Login page doesn't need protected data, and prefetch would cause unnecessary 401 errors
+  if (window.location.pathname !== "/login") {
     try {
       await Promise.all([
         queryClient.prefetchQuery(api.queries.currentUser()),
