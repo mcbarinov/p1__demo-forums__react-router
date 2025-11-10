@@ -9,9 +9,17 @@ import { authStorage } from "@/lib/auth-storage"
 import { toast } from "sonner"
 import { AppError } from "@/lib/errors"
 import { Toaster } from "@/components/ui/sonner"
+import { setNavigate } from "@/lib/navigation"
 
 async function startApp() {
   const router = createRouter()
+
+  // Initialize navigation gateway to enable SPA navigation from non-React code
+  // This allows api.ts to redirect to /login on 401 without full page reload
+  setNavigate((path, opts) => {
+    void router.navigate(path, { replace: opts?.replace })
+  })
+
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {

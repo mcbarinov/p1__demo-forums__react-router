@@ -3,6 +3,7 @@ import ky from "ky"
 import { AppError } from "@/lib/errors"
 import type { Forum, Post, User, LoginRequest, LoginResponse, CreateForumData, Comment, PaginatedResponse } from "@/types"
 import { authStorage } from "@/lib/auth-storage"
+import { navigateTo } from "@/lib/navigation"
 
 const httpClient = ky.create({
   prefixUrl: "http://localhost:8000",
@@ -20,11 +21,15 @@ const httpClient = ky.create({
     ],
     afterResponse: [
       async (_request, _options, response) => {
-        // Handle 401 redirect early
+        // Handle 401 authentication errors
+        // Clear token and redirect to login using SPA navigation (not full page reload)
         if (response.status === 401) {
           authStorage.clearAuthToken()
           if (window.location.pathname !== "/login") {
-            window.location.href = "/login"
+            // Use navigateTo() instead of window.location.href to maintain SPA navigation
+            // This prevents full page reload and preserves smooth user experience
+            // The replace: true option prevents adding /login to browser history
+            navigateTo("/login", { replace: true })
           }
         }
 
