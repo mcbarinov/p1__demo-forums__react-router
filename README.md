@@ -1,10 +1,6 @@
 # DemoForums
 
-A reference implementation of a React SPA with REST API backend, demonstrating modern patterns for building scalable web applications.
-
-## Purpose
-
-This project serves as an architectural template for developers and AI agents building React applications with REST APIs. It showcases production-ready patterns for state management, caching, error handling, and component organization.
+An architectural template for React SPAs with REST APIs, showcasing production-ready patterns for state management, caching, error handling, and component organization.
 
 ## Routes
 
@@ -60,17 +56,19 @@ src/
 │   │   ├── Layout.tsx
 │   │   └── -components/       # Layout sub-components
 │   │       ├── Header.tsx
-│   │       └── Footer.tsx
+│   │       ├── Footer.tsx
+│   │       └── ChangePasswordDialog.tsx
 │   ├── ui/                    # UI components (shadcn/ui)
 │   ├── shared/                # Reusable components
-│   │   └── Username.tsx
+│   │   ├── Username.tsx
+│   │   └── ErrorMessage.tsx
 │   └── errors/                # Error handling components
-│       ├── ErrorBoundary.tsx
-│       └── ErrorDisplay.tsx
+│       └── ErrorBoundary.tsx
 ├── lib/                       # Core utilities
 │   ├── api.ts                # API client and cache configuration
 │   ├── errors.ts             # Error handling system
 │   ├── formatters.ts         # Data formatting utilities
+│   ├── navigation.ts         # Navigation utilities
 │   └── utils.ts              # UI utility functions (shadcn/ui)
 ├── hooks/                     # Custom React hooks
 │   └── useCache.ts           # Cache access hooks
@@ -223,100 +221,19 @@ const forums = useForums() // Returns all forums
 
 ### Form Handling
 
-#### Technology Stack
+**Technology Stack:** React Hook Form + Zod + shadcn/ui + TanStack Query mutations
 
-- **React Hook Form** - Form state management with minimal re-renders
-- **Zod** - Runtime schema validation with TypeScript integration
-- **shadcn/ui Form components** - Consistent form UI components
-- **TanStack Query mutations** - Server state management for form submissions
-
-#### Form Architecture Patterns
-
-##### 1. Schema Definition
-
-Define validation schemas using Zod with clear, user-friendly error messages:
+**Form Pattern:**
 
 ```typescript
+// 1. Define schema
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
   content: z.string().min(10, "Content must be at least 10 characters"),
-  slug: z.string().regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens"),
 })
-
 type FormData = z.infer<typeof formSchema>
-```
 
-##### 2. Form Setup
-
-Initialize forms with proper validation and default values:
-
-```typescript
-const form = useForm<FormData>({
-  resolver: zodResolver(formSchema),
-  defaultValues: {
-    title: "",
-    content: "",
-  },
-})
-```
-
-##### 3. Error Handling
-
-Display errors directly in the UI - never use `onError` callbacks:
-
-```typescript
-// ✅ CORRECT: Display mutation errors in the form
-{mutation.error && <ErrorMessage error={mutation.error} />}
-
-// ❌ WRONG: Don't handle errors in callbacks
-mutation.mutate(data, {
-  onError: (error) => { /* Don't do this */ }
-})
-```
-
-Custom error messages for specific error codes:
-
-```typescript
-<ErrorMessage
-  error={mutation.error}
-  customMessage={(error) =>
-    error.code === "unauthorized" ? "Invalid credentials" : undefined
-  }
-/>
-```
-
-##### 4. Mutation Success Handling
-
-Handle side effects in `onSuccess` callback:
-
-```typescript
-const onSubmit = (data: FormData) => {
-  mutation.mutate(data, {
-    onSuccess: (result) => {
-      // Navigate after successful creation
-      navigate(`/posts/${result.id}`)
-      // Or show success toast
-      toast.success("Created successfully!")
-      // Reset form if staying on same page
-      form.reset()
-    },
-  })
-}
-```
-
-##### 5. UI State Management
-
-Provide proper feedback during form submission:
-
-```typescript
-<Button type="submit" disabled={mutation.isPending}>
-  {mutation.isPending ? "Creating..." : "Create"}
-</Button>
-```
-
-##### 6. Complete Form Example
-
-```typescript
+// 2. Complete form component
 export function CreatePostForm() {
   const navigate = useNavigate()
   const mutation = api.mutations.useCreatePost()
@@ -363,19 +280,11 @@ export function CreatePostForm() {
 }
 ```
 
-#### Form Component Organization
-
-- **Simple forms**: Inline in page components
-- **Complex forms**: Separate components in `-components/` folder
-- **Reusable forms**: Accept minimal props (IDs, not objects)
-
-#### Key Principles
-
-1. **Validation-first**: Define schemas before building forms
-2. **User feedback**: Always show loading and error states
-3. **Type safety**: Use `z.infer` for form types
-4. **Separation of concerns**: Mutations handle cache, components handle UI
-5. **Consistent patterns**: Follow the same structure across all forms
+**Key Rules:**
+- Display errors in UI with `{mutation.error && <ErrorMessage error={mutation.error} />}` - never use `onError` callbacks
+- Handle navigation/toasts in `onSuccess` callback
+- Show loading state with `disabled={mutation.isPending}`
+- Use `z.infer` for type safety
 
 ### Error Handling
 
@@ -403,117 +312,48 @@ export function CreatePostForm() {
 
 ### Authentication & Security
 
-#### Cookie-Based Authentication
+This project uses **HttpOnly cookies** for authentication, providing better security against XSS attacks compared to localStorage.
 
-This project uses **HttpOnly cookies** for authentication instead of localStorage, providing better security against XSS attacks.
-
-**Why HttpOnly Cookies?**
-
-- **XSS Protection**: Cookies with `HttpOnly` flag cannot be accessed by JavaScript, preventing token theft via XSS
-- **Automatic Transmission**: Browser automatically sends cookies with requests (using `credentials: "include"`)
-- **CSRF Protection**: `SameSite=Lax` prevents cookies from being sent on cross-site requests
-- **Secure Flag**: Cookies only transmitted over HTTPS (both in development and production)
+**Key Benefits:**
+- **XSS Protection**: HttpOnly cookies cannot be accessed by JavaScript
+- **Automatic Transmission**: Browser sends cookies automatically with requests
+- **CSRF Protection**: SameSite=Lax prevents cross-site cookie transmission
 
 **Authentication Flow:**
 
-1. **Login**: Backend sets `Set-Cookie` header with `HttpOnly`, `Secure`, `SameSite=Lax` flags
-2. **Requests**: Browser automatically includes cookie with all API requests (no JavaScript access)
-3. **Validation**: Backend reads session ID from cookie and validates session
-4. **Logout**: Backend sends `Set-Cookie` with expired date to clear cookie
+1. **Login**: Backend sets HttpOnly, Secure, SameSite=Lax cookie
+2. **Requests**: Browser automatically includes cookie (using `credentials: "include"`)
+3. **Validation**: Backend validates session from cookie
+4. **Logout**: Backend expires cookie
 5. **Auth Guard**: Layout component queries `/api/profile` - 401 redirects to login
 
 **Security Configuration:**
 
 ```python
-# Backend (FastAPI) - routes.py
-import os
-
-# Secure flag: True in production (behind reverse proxy), False in development
-SECURE_COOKIES = os.getenv("ENVIRONMENT", "development") == "production"
+# Backend (FastAPI)
+SECURE_COOKIES = os.getenv("ENVIRONMENT") == "production"
 
 response.set_cookie(
     key="session_id",
     value=session_id,
-    httponly=True,        # Cannot be accessed by JavaScript (XSS protection)
+    httponly=True,        # XSS protection
     secure=SECURE_COOKIES,  # HTTPS-only in production
-    samesite="lax",       # CSRF protection (sent on same-site + top-level navigation)
-    path="/",             # Available for all routes
+    samesite="lax",       # CSRF protection
 )
 ```
 
 ```typescript
-// Frontend (ky) - api.ts
+// Frontend (ky)
 const httpClient = ky.create({
   credentials: "include", // Send cookies with requests
 })
 ```
 
-**Development vs Production:**
-
-**Development** (HTTP everywhere):
-
-```
-Browser (HTTP) → Frontend :3001 (HTTP)
-                     ↓
-                Backend :8000 (HTTP)
-                Cookie: secure=False ✅
-```
-
-**Production** (reverse proxy terminates SSL):
-
-```
-Browser (HTTPS) → Caddy/Nginx :443 (terminates SSL)
-                     ↓
-                Backend :8000 (HTTP internally)
-                Cookie: secure=True ✅
-```
-
-In production, the reverse proxy (Caddy, Nginx, etc.) handles SSL termination. The backend sets `secure=True` cookies, which the browser treats as HTTPS-only because the connection to the proxy is HTTPS.
-
-**Trade-offs & Considerations:**
-
-✅ **Advantages:**
-
-- Immune to XSS token theft (HttpOnly)
-- Automatic CSRF protection (SameSite=Lax)
-- Simpler frontend code (no manual token management)
-- Industry standard for session management
-- Works in both development (HTTP) and production (HTTPS behind proxy)
-
-⚠️ **Considerations:**
-
-- CORS configuration must include `allow_credentials=True`
-- Session state stored in backend memory (not suitable for horizontal scaling without external session store)
-- Cannot inspect token in browser DevTools JavaScript console (by design - this is a security feature)
-- Requires environment variable in production (`ENVIRONMENT=production`)
-
-**Alternative Approaches:**
-
-This project chose cookies for security. Other approaches include:
-
-1. **localStorage + Bearer tokens** (previous approach):
-   - ❌ Vulnerable to XSS attacks
-   - ✅ Simpler CORS setup
-   - ✅ Works without HTTPS
-
-2. **Refresh tokens in HttpOnly cookies + Access tokens in memory**:
-   - ✅ Best security (short-lived access tokens)
-   - ✅ Survives page refreshes (refresh token)
-   - ❌ More complex implementation
-
-3. **OAuth/OIDC with third-party providers**:
-   - ✅ No password management
-   - ✅ Industry standard
-   - ❌ Requires external service
-
-**Security Best Practices:**
-
-1. **Always use HTTPS** in production (enforced by `Secure` flag)
-2. **Validate CORS origins** carefully (never use `*` with credentials)
-3. **Set appropriate session expiration** (currently indefinite for simplicity)
-4. **Monitor for XSS vulnerabilities** (React provides built-in protection)
-5. **Consider adding rate limiting** on authentication endpoints
-6. **Use Content Security Policy (CSP)** headers in production
+**Important Considerations:**
+- CORS requires `allow_credentials=True`
+- Session state in backend memory (use external store for horizontal scaling)
+- Set `ENVIRONMENT=production` for secure cookies in production
+- In production, reverse proxy (Caddy/Nginx) handles SSL termination
 
 ## Key Development Principles
 
@@ -641,87 +481,33 @@ pnpm agent-dev
 
 ## Best Practices
 
-### When Building New Features
+### Component Props
 
-1. **Check Existing Patterns** - Look at similar features first
-2. **Use Cached Data** - Prefer `useCache` hooks over new queries
-3. **Handle Errors Properly** - Use `AppError.fromUnknown()`
-4. **Follow Naming Conventions** - Consistent file and component names
-5. **Minimize Comments** - Code should be self-documenting
-6. **Test Cache Behavior** - Verify invalidation logic
-
-### Component Props Guidelines
-
-#### When to Use Inline Types vs Interfaces
-
-**Use inline types** for simple props:
-
+**Inline types** for 1-3 simple properties:
 ```typescript
-// ✅ Good - Simple props with 1-3 properties
 export function ErrorMessage({ error }: { error: unknown }) {}
 export function Username({ id, className }: { id: string; className?: string }) {}
-export function PostDetail({ post }: { post: Post }) {}
 ```
 
-**Use interfaces** for complex props:
-
+**Interfaces** for 4+ properties or JSDoc needs:
 ```typescript
-// ✅ Good - Complex props with 4+ properties or documentation needs
 interface PaginatorProps {
   currentPage: number
   totalPages: number
   pageSize: number
-  totalCount: number
 }
 export function Paginator(props: PaginatorProps) {}
 ```
 
-**Guidelines:**
-
-- Inline types for 1-3 simple properties
-- Interfaces for 4+ properties or when JSDoc comments are needed
-- Never export prop interfaces unless they're reused elsewhere
-- Keep prop definitions close to the component for better readability
+Never export prop interfaces unless reused elsewhere.
 
 ### Common Patterns
 
-#### Creating a New Page
+**New Page:** Add route in `router.ts` → Create in `components/pages/` → Use `-components/` for sub-components
 
-1. Add route in `router.ts`
-2. Create page component in `components/pages/`
-3. Use `-components/` folder for sub-components
-4. Implement error handling with Suspense/ErrorBoundary
+**New API:** Define types in `types.ts` → Add query/mutation in `api.ts` → Set cache strategy
 
-#### Adding API Endpoint
-
-1. Define types in `types.ts`
-2. Add query/mutation in `api.ts`
-3. Set appropriate cache strategy
-4. Handle errors in component
-
-#### Accessing Cached Data
-
-1. Use existing `useCache` hooks when possible
-2. Create new cache hooks for repeated patterns
-3. Throw `AppError` for missing data
-4. Let ErrorBoundary handle failures
-
-## Architecture Decisions
-
-### Why This Structure?
-
-1. **Pages in components/** - Pages are components, keeping all UI code together
-2. **-components folders** - Clear distinction between public and internal components
-3. **Cache-first approach** - Reduces server load and improves performance
-4. **Separation of API and UI** - Enables easy testing and refactoring
-5. **FastAPI backend** - Modern Python backend with automatic API documentation
-
-### Trade-offs
-
-- **Infinite caching** - Works well for stable data, requires manual invalidation
-- **Suspense everywhere** - Simpler code but requires error boundaries
-- **TypeScript strictness** - More verbose but catches errors early
-- **Minimal abstractions** - Direct use of React Query instead of custom wrappers
+**Cached Data:** Use `useCache` hooks → Throw `AppError` for missing data → Let ErrorBoundary handle failures
 
 ## Project Setup from Scratch
 
