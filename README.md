@@ -281,6 +281,7 @@ export function CreatePostForm() {
 ```
 
 **Key Rules:**
+
 - Display errors in UI with `{mutation.error && <ErrorMessage error={mutation.error} />}` - never use `onError` callbacks
 - Handle navigation/toasts in `onSuccess` callback
 - Show loading state with `disabled={mutation.isPending}`
@@ -315,6 +316,7 @@ export function CreatePostForm() {
 This project uses **HttpOnly cookies** for authentication, providing better security against XSS attacks compared to localStorage.
 
 **Key Benefits:**
+
 - **XSS Protection**: HttpOnly cookies cannot be accessed by JavaScript
 - **Automatic Transmission**: Browser sends cookies automatically with requests
 - **CSRF Protection**: SameSite=Lax prevents cross-site cookie transmission
@@ -350,6 +352,7 @@ const httpClient = ky.create({
 ```
 
 **Important Considerations:**
+
 - CORS requires `allow_credentials=True`
 - Session state in backend memory (use external store for horizontal scaling)
 - Set `ENVIRONMENT=production` for secure cookies in production
@@ -484,12 +487,14 @@ pnpm agent-dev
 ### Component Props
 
 **Inline types** for 1-3 simple properties:
+
 ```typescript
 export function ErrorMessage({ error }: { error: unknown }) {}
 export function Username({ id, className }: { id: string; className?: string }) {}
 ```
 
 **Interfaces** for 4+ properties or JSDoc needs:
+
 ```typescript
 interface PaginatorProps {
   currentPage: number
