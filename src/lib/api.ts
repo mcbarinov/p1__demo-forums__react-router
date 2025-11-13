@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
 import ky from "ky"
 import { AppError } from "@/lib/errors"
-import type { Forum, Post, User, LoginRequest, CreateForumData, Comment, PaginatedResponse } from "@/types"
+import type { Forum, Post, User, LoginRequest, CreateForumRequest, Comment, PaginatedResponse } from "@/types"
 import { navigateTo } from "@/lib/navigation"
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -36,7 +36,10 @@ const httpClient = ky.create({
             const contentType = response.headers.get("content-type")
             if (contentType?.includes("application/json")) {
               const data = (await response.clone().json()) as Record<string, unknown>
-              if (typeof data.message === "string" && data.message.trim() !== "") {
+              // Check both 'detail' (FastAPI standard) and 'message' fields
+              if (typeof data.detail === "string" && data.detail.trim() !== "") {
+                message = data.detail
+              } else if (typeof data.message === "string" && data.message.trim() !== "") {
                 message = data.message
               }
             }
@@ -139,7 +142,7 @@ export const api = {
       const queryClient = useQueryClient()
 
       return useMutation({
-        mutationFn: (data: CreateForumData) => httpClient.post("api/forums", { json: data }).json<Forum>(),
+        mutationFn: (data: CreateForumRequest) => httpClient.post("api/forums", { json: data }).json<Forum>(),
         onSuccess: () => {
           void queryClient.invalidateQueries({ queryKey: ["forums"] })
         },

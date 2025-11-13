@@ -72,7 +72,9 @@ src/
 │   └── utils.ts              # UI utility functions (shadcn/ui)
 ├── hooks/                     # Custom React hooks
 │   └── useCache.ts           # Cache access hooks
-├── types.ts                   # TypeScript type definitions
+├── types/                     # TypeScript type definitions
+│   ├── openapi.gen.ts        # Auto-generated from OpenAPI (DO NOT EDIT)
+│   └── index.ts              # Type re-exports and custom types
 ├── router.ts                  # Route configuration
 └── main.tsx                   # Application entry point
 ```
@@ -393,6 +395,37 @@ const httpClient = ky.create({
 - Clear file organization
 - Consistent naming patterns
 
+### 6. Type Generation from OpenAPI
+
+TypeScript types are automatically generated from the backend's OpenAPI schema, ensuring type safety across the full stack.
+
+**Type Generation Workflow:**
+
+1. Backend must be running at `http://localhost:8000`
+2. Run `pnpm run generate-types` to fetch OpenAPI schema and generate types
+3. Types are generated to `src/types/openapi.gen.ts`
+4. Import types from `@/types` (barrel file) in your code
+
+**Type Structure:**
+
+```typescript
+// Import from barrel file (never from openapi.gen.ts directly)
+import type { User, Forum, Post, Comment } from "@/types"
+import type { CreateForumRequest, LoginRequest } from "@/types"
+import type { PaginatedResponse } from "@/types"
+
+// Example usage
+const user: User = await httpClient.get("api/profile").json<User>()
+```
+
+**Important Notes:**
+
+- `src/types/openapi.gen.ts` is auto-generated - **DO NOT EDIT**
+- Generated types are committed to git for convenience
+- Re-run `pnpm run generate-types` when backend schema changes
+- All API request/response types come from OpenAPI schema
+- Custom UI-specific types can be added to `src/types/index.ts`
+
 ## Development
 
 ### Prerequisites
@@ -510,7 +543,7 @@ Never export prop interfaces unless reused elsewhere.
 
 **New Page:** Add route in `router.ts` → Create in `components/pages/` → Use `-components/` for sub-components
 
-**New API:** Define types in `types.ts` → Add query/mutation in `api.ts` → Set cache strategy
+**New API:** Generate types from backend (`pnpm run generate-types`) → Add query/mutation in `api.ts` → Set cache strategy
 
 **Cached Data:** Use `useCache` hooks → Throw `AppError` for missing data → Let ErrorBoundary handle failures
 
@@ -527,7 +560,7 @@ cd {new-project-dir}
 pnpm add react-router ky @tanstack/react-query
 
 # Dev tools
-pnpm add -D eslint-plugin-react-x eslint-plugin-react-dom prettier eslint-config-prettier @types/node @tanstack/eslint-plugin-query
+pnpm add -D eslint-plugin-react-x eslint-plugin-react-dom prettier eslint-config-prettier @types/node @tanstack/eslint-plugin-query openapi-typescript
 
 # Tailwind CSS (not as dev dependency!)
 pnpm add tailwindcss @tailwindcss/vite

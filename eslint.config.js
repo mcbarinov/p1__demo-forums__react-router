@@ -58,6 +58,13 @@ export default defineConfig([
         "react-x/no-use-context": "off",
         "react-x/no-unstable-context-value": "off",
       },
+    },
+    {
+      files: ["**/types/openapi.gen.ts"],
+      rules: {
+        "@typescript-eslint/consistent-type-definitions": "off",
+        "@typescript-eslint/consistent-indexed-object-style": "off",
+      },
     }
   ),
 ])
